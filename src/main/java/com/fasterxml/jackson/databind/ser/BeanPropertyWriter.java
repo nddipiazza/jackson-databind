@@ -1,13 +1,16 @@
 package com.fasterxml.jackson.databind.ser;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.SerializableString;
 import com.fasterxml.jackson.core.io.SerializedString;
 import com.fasterxml.jackson.databind.*;
@@ -663,11 +666,20 @@ public class BeanPropertyWriter
         }
         gen.writeFieldName(_name);
         if (_typeSerializer == null) {
-            ser.serialize(value, gen, prov);
+        	serialize(bean, gen, prov, value, ser);            
         } else {
             ser.serializeWithType(value, gen, prov, _typeSerializer);
         }
     }
+
+	private void serialize(Object bean, JsonGenerator gen, SerializerProvider prov, final Object value, JsonSerializer<Object> ser) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, IOException, JsonProcessingException {
+		Method serializeMethodWithParentBeanRef = ser.getClass().getMethod("serialize", value.getClass(), JsonGenerator.class, SerializerProvider.class, Object.class);
+		if (serializeMethodWithParentBeanRef != null) {
+			serializeMethodWithParentBeanRef.invoke(ser, value, gen, prov, bean);
+		} else {
+			ser.serialize(value, gen, prov);
+		}
+	}
 
     /**
      * Method called to indicate that serialization of a field was omitted
@@ -734,7 +746,7 @@ public class BeanPropertyWriter
             }
         }
         if (_typeSerializer == null) {
-            ser.serialize(value, gen, prov);
+            serialize(bean, gen, prov, value, ser);
         } else {
             ser.serializeWithType(value, gen, prov, _typeSerializer);
         }
